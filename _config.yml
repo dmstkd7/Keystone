@@ -1,0 +1,5 @@
+title: 경영진단 전문가 지식보관소
+description: Gemini 기반 AI 경영진단 및 체크리스트 리포트
+theme: jekyll-theme-primer # 또는 jekyll-theme-minimal, jekyll-theme-architect
+plugins:
+  - jekyll-seo-tag
