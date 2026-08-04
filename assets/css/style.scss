@@ -1,0 +1,23 @@
+---
+---
+@import "{{ site.theme }}";
+
+/* 경영진단 핵심 체크리스트 박스 스타일 */
+blockquote {
+  border-left: 4px solid #003366; /* 맥킨지 다크블루 */
+  background-color: #f4f6f9;
+  padding: 15px;
+  border-radius: 4px;
+}
+
+/* 체크리스트 강조 스타일 */
+ul {
+  list-style-type: '☑️ ';
+}
+
+/* 헤더 스타일링 */
+h2 {
+  color: #003366;
+  border-bottom: 2px solid #003366;
+  padding-bottom: 8px;
+}
