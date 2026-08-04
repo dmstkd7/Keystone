@@ -1,0 +1,14 @@
+---
+layout: default
+---
+<article class="diagnostic-report" style="max-width: 900px; margin: 0 auto; font-family: 'Plus Jakarta Sans', sans-serif;">
+  <header style="border-bottom: 3px solid #003366; padding-bottom: 20px; margin-bottom: 30px;">
+    <span style="background-color: #003366; color: white; padding: 4px 12px; border-radius: 4px; font-size: 14px; font-weight: bold;">McKinsey/BCG Framework</span>
+    <h1 style="color: #003366; font-size: 36px; margin-top: 15px; font-weight: 700;">{{ page.title }}</h1>
+    <p style="color: #64748b; font-size: 14px;">작성일: {{ page.date | date: "%Y-%m-%d" }} | 자동 분석: Gemini 2.5 AI</p>
+  </header>
+
+  <div class="report-content" style="line-height: 1.8; font-size: 17px; color: #334155;">
+    {{ content }}
+  </div>
+</article>
