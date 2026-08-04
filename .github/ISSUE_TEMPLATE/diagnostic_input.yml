@@ -1,21 +1,13 @@
 name: "경영진단 정보 입력"
-description: "경영진단을 위한 기업/산업 정보 및 현상 데이터를 입력합니다."
-title: "[진단 요청] "
+description: "진단에 필요한 정보, 회의록, 수치 데이터 등을 자유롭게 입력하세요."
+title: "[진단] "
 labels: ["diagnostic-request"]
 body:
   - type: textarea
-    id: company_info
+    id: raw_data
     attributes:
-      label: "기업 및 산업 정보"
-      description: "진단 대상 기업명, 산업군, 규모 등을 작성해 주세요."
-      placeholder: "예: ABC 제조업체 / 매출액 100억 / 임직원 50명"
-    validations:
-      required: true
-  - type: textarea
-    id: current_issues
-    attributes:
-      label: "현상 및 문제점 데이터"
-      description: "현재 직면한 핵심 문제, 진단이 필요한 지점을 상세히 적어주세요."
-      placeholder: "예: 신제품 출시 후 마케팅 효율 저하, 최근 3개월간 이탈률 15% 증가..."
+      label: "경영진단 자료 및 정보"
+      description: "기업 정보, 문제점, 현황, 아이디어 등 수집된 정보를 형식 없이 자유롭게 입력하거나 붙여넣으세요."
+      placeholder: "예시: ABC 제조기업 최근 매출 20% 감소. 마케팅 비용은 증가했으나 고객 이탈률 높음. 신제품 출시 지연 문제 발생..."
     validations:
       required: true
