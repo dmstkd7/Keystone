@@ -2,49 +2,99 @@
 ---
 @import "{{ site.theme }}";
 
-/* 맥킨지 스타일의 강조 상자 */
-blockquote {
-  border-left: 5px solid #003366 !important;
-  background-color: #f8fafc !important;
-  color: #1e293b !important;
-  padding: 18px 24px !important;
-  border-radius: 6px !important;
+/* === Executive Global Styles === */
+:root {
+  --primary-navy: #0f172a;
+  --accent-blue: #0284c7;
+  --accent-sky: #38bdf8;
+  --bg-card: #1e293b;
+  --text-main: #334155;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  color: var(--text-main);
+  background-color: #f8fafc;
+  line-height: 1.7;
+}
+
+/* === Title & Header Styling === */
+.site-header, header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff !important;
+  padding: 40px 0;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.site-title {
+  font-family: 'Merriweather', serif;
+  font-weight: 700;
+  color: #ffffff !important;
+  font-size: 28px;
+}
+
+/* === Executive Card Components === */
+.category-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  transition: all 0.25s ease-in-out;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.category-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 20px -3px rgba(0, 0, 0, 0.1);
+  border-color: var(--accent-blue);
+}
+
+.category-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  background-color: #e0f2fe;
+  color: #0369a1;
+  margin-right: 8px;
+}
+
+/* === High-End Checklist UI === */
+ul.checklist {
+  list-style: none !important;
+  padding-left: 0 !important;
+}
+
+ul.checklist li {
+  position: relative;
+  padding: 12px 16px 12px 42px;
+  margin-bottom: 10px;
+  background-color: #f1f5f9;
+  border-left: 4px solid var(--accent-blue);
+  border-radius: 0 8px 8px 0;
   font-weight: 500;
 }
 
-/* 체크리스트 스타일링 */
-ul {
-  list-style-type: none;
-  padding-left: 0;
-}
-ul li {
-  position: relative;
-  padding-left: 30px;
-  margin-bottom: 12px;
-}
-ul li::before {
-  content: "☑";
-  color: #0284c7;
-  font-weight: bold;
-  font-size: 20px;
+ul.checklist li::before {
+  content: "✓";
   position: absolute;
-  left: 0;
-  top: -2px;
+  left: 14px;
+  top: 10px;
+  color: var(--accent-blue);
+  font-weight: bold;
+  font-size: 18px;
 }
 
-/* 예쁜 테이블 디자인 */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 25px 0;
-}
-th {
-  background-color: #003366;
-  color: white;
-  padding: 12px;
-  text-align: left;
-}
-td {
-  border-bottom: 1px solid #e2e8f0;
-  padding: 12px;
+/* === Callout & Highlight Box === */
+blockquote {
+  border-left: 5px solid #0f172a !important;
+  background-color: #f8fafc !important;
+  padding: 20px 24px !important;
+  border-radius: 8px !important;
+  color: #1e293b !important;
+  margin: 24px 0 !important;
 }
