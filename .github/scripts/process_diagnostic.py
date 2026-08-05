@@ -1,75 +1,86 @@
 import os
 import json
-from datetime import datetime
 from google import genai
 from google.genai import types
 
-# 환경 변수 로드
 api_key = os.environ.get("GEMINI_API_KEY")
 issue_body = os.environ.get("ISSUE_BODY", "")
-issue_title = os.environ.get("ISSUE_TITLE", "경영진단 요청")
+issue_title = os.environ.get("ISSUE_TITLE", "경영진단 정보 추가")
 issue_number = os.environ.get("ISSUE_NUMBER", "0")
 
 client = genai.Client(api_key=api_key)
 
-# 단일 텍스트(Raw Data)를 기반으로 맥킨지/BCG 프레임워크 보고서 자동 생성 프롬프트
+# 1. 기존 누적 데이터(Master DB) 읽어오기
+db_filepath = "_data/diagnostics.json"
+existing_data = []
+
+if os.path.exists(db_filepath):
+    try:
+        with open(db_filepath, "r", encoding="utf-8") as f:
+            existing_data = json.load(f)
+    except Exception as e:
+        print(f"기존 DB 읽기 실패 (새 데이터로 시작합니다): {e}")
+
+# 2. Gemini에게 기존 DB + 신규 데이터 병합 요청
 prompt = f"""
-당신은 맥킨지(McKinsey) 및 BCG 출신의 최고 경영컨설팅 수석 파트너입니다.
-아래에 경영진단 전문가가 입력한 자유 형식의 데이터(Raw Data)가 있습니다.
+당신은 맥킨지(McKinsey) 및 BCG 출신의 최고 경영컨설팅 지식관리(KM) 수석 파트너입니다.
+우리 시스템은 경영진단 지식을 누적/통합 관리하는 마스터 DB를 운용하고 있습니다.
 
-[입력된 원본 데이터]
-{issue_body}
+[기존 누적 경영진단 DB (JSON)]
+{json.dumps(existing_data, ensure_ascii=False, indent=2)}
 
-위 데이터를 바탕으로 다음 3가지 핵심 내용이 포함된 정교한 경영진단 보고서를 작성해 주세요:
+[새로 입력된 전문가 데이터 (Issue #{issue_number})]
+제목: {issue_title}
+내용: {issue_body}
 
-1. 🔄 **기존/입력 자료 분석 및 보완 제언**
-   - 입력된 자료 내의 중복되거나 대립되는 내용 정리
-   - 경영 진단을 완성하기 위해 추가로 수집하거나 덧붙이면 좋을 핵심 정보/지표 제언
+[수행 지침]
+1. 새로 들어온 데이터를 기존 DB와 비교 분석하세요.
+2. **중복 제거 및 통합 (De-duplication & Merge)**: 
+   - 기존 DB에 이미 존재하는 아이템이나 체크리스트는 중복 생성하지 마세요.
+   - 신규 내용이 기존 항목을 보완하는 경우, 기존 항목의 설명(description)이나 체크리스트(checklists)에 통합하여 덧붙이세요.
+3. **카테고리 표준화**: 모든 아이템은 아래 4개 표준 카테고리 중 하나에 분류하세요:
+   - "경영전략 (Strategy)"
+   - "운영/프로세스 (Operations)"
+   - "조직/리더십 (Organization & Style)"
+   - "재무/자본배분 (Finance & Capital)"
+4. **결과 출력 형식**: 반드시 아래 구조를 가진 JSON 배열 형태로만 응답하세요.
 
-2. 📊 **경영학적 프레임워크 분류 (전략/운영/조직/재무 등)**
-   - 입력된 무작위 정보들을 보기 쉽게 카테고리별로 구조화하여 정리
-
-3. 🎯 **[핵심] 경영진단 아이템 및 체크리스트 (맥킨지/BCG 관점)**
-   - 컨설턴트가 현장에서 바로 점검해야 할 **핵심 진단 아이템** 추출
-   - 각 아이템별 **세부 체크리스트(Checklist)** 리스트업 (우선순위 High/Medium 표기)
-
-* 작성 규칙: 
-- 웹사이트(Jekyll)에 예쁘게 표기되도록 깔끔한 Markdown 문법과 이모지, 강조 박스(Quote block) 등을 적극 활용하세요.
-- 경영진단 아이템 및 체크리스트 섹션은 한눈에 들어오도록 별도의 강조 디자인 느낌으로 작성해 주세요.
+JSON 구조 예시:
+[
+  {{
+    "category": "경영전략 (Strategy)",
+    "items": [
+      {{
+        "title": "진단 아이템 이름",
+        "priority": "HIGH", 
+        "description": "상세 진단 개요 및 보완된 설명",
+        "checklists": [
+          "체크리스트 항목 1",
+          "체크리스트 항목 2"
+        ]
+      }}
+    ]
+  }}
+]
 """
 
 response = client.models.generate_content(
     model='gemini-2.5-flash',
     contents=prompt,
     config=types.GenerateContentConfig(
-        system_instruction="당신은 전문 경영 컨설턴트입니다. 읽기 쉽고 가독성이 뛰어난 프리미엄 경영진단 보고서를 생성합니다.",
+        response_mime_type="application/json",
+        system_instruction="당신은 데이터 통합 시스템입니다. 기존 데이터와 신규 데이터를 병합하여 중복 없는 최신 JSON 마스터 DB를 출력하세요."
     ),
 )
 
-report_content = response.text
-
-# 웹사이트 게시용 Jekyll 포스트 작성
-today = datetime.now().strftime("%Y-%m-%d")
-clean_title = issue_title.replace("[진단]", "").strip() or f"경영진단 리포트 #{issue_number}"
-filename = f"_posts/{today}-diagnostic-issue-{issue_number}.md"
-
-front_matter = f"""---
-layout: post
-title: "{clean_title}"
-date: {today}
-categories: [경영진단]
-tags: [Gemini, 맥킨지프레임워크, 이슈-{issue_number}]
----
-
-> 💡 **본 리포트는 Issue #{issue_number}의 입력 데이터를 기반으로 Gemini AI가 분석하여 자동 생성한 경영진단 리포트입니다.**
-
----
-
-{report_content}
-"""
-
-os.makedirs("_posts", exist_ok=True)
-with open(filename, "w", encoding="utf-8") as f:
-    f.write(front_matter)
-
-print(f"성공적으로 리포트를 생성했습니다: {filename}")
+# 3. 정제된 최신 데이터를 _data/diagnostics.json에 저장
+try:
+    updated_db = json.loads(response.text)
+    os.makedirs("_data", exist_ok=True)
+    with open(db_filepath, "w", encoding="utf-8") as f:
+        json.dump(updated_db, f, ensure_ascii=False, indent=2)
+    print(f"성공적으로 마스터 DB({db_filepath})를 업데이트했습니다!")
+except Exception as e:
+    print(f"JSON 파싱 오류 발생: {e}")
+    print(f"Gemini 원본 응답:\n{response.text}")
+    raise e
