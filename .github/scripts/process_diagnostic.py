@@ -16,16 +16,16 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
-# 2. 기존 마스터 DB 읽기
+# 2. 기존 마스터 DB 안전하게 읽기
 db_filepath = "_data/diagnostics.json"
 existing_data = []
 
-if os.path.exists(db_filepath):
+if os.path.exists(db_filepath) and os.path.getsize(db_filepath) > 0:
     try:
         with open(db_filepath, "r", encoding="utf-8") as f:
             existing_data = json.load(f)
     except Exception as e:
-        print(f"⚠️ 기존 DB 읽기 실패: {e}")
+        print(f"⚠️ 기존 DB 읽기 실패 (새 DB로 초기화합니다): {e}")
 
 # 3. Gemini 프롬프트 작성
 prompt = f"""
@@ -66,10 +66,10 @@ JSON 예시:
 ]
 """
 
-# 4. API 호출 및 파일 저장
+# 4. API 호출 (검증된 gemini-2.0-flash 모델 사용)
 try:
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-2.0-flash',
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json"
