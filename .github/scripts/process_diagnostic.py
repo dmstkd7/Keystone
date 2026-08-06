@@ -63,35 +63,70 @@ prompt = f"""
 ]
 """
 
-# 4. 최신 지원 모델인 gemini-2.5-flash 호출
-candidate_models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
+# 4. API 키에서 현재 사용 가능한 모델 목록 동적 조회
+candidate_models = []
+
+try:
+    print("🔍 계정에서 이용 가능한 최신 Gemini 모델 동적 검색 중...")
+    models_list = list(client.models.list())
+    for m in models_list:
+        m_name = getattr(m, 'name', str(m)).replace("models/", "")
+        # 텍스트 생성용 flash / pro 모델만 추출
+        if any(k in m_name for k in ["flash", "pro"]) and not any(skip in m_name for skip in ["image", "tts", "live", "audio", "video", "veo", "embedding"]):
+            candidate_models.append(m_name)
+    print(f"📋 감지된 사용 가능 모델 목록: {candidate_models}")
+except Exception as e:
+    print(f"⚠️ 모델 자동 탐색 실패, 기본 후보군을 사용합니다: {e}")
+
+# 동적 탐색 실패 시 기본 백업 후보
+backup_list = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
+for b in backup_list:
+    if b not in candidate_models:
+        candidate_models.append(b)
+
+# 5. 감지된 모델로 순차 호출 시도
 success = False
 
 for model_name in candidate_models:
-    print(f"🔄 최신 모델 [{model_name}] 호출 시도 중...")
-    try:
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json"
-            ),
-        )
-        
-        res_text = response.text.strip()
-        updated_db = json.loads(res_text)
-        
-        os.makedirs("_data", exist_ok=True)
-        with open(db_filepath, "w", encoding="utf-8") as f:
-            json.dump(updated_db, f, ensure_ascii=False, indent=2)
+    print(f"🔄 모델 [{model_name}] 호출 시도 중...")
+    
+    for attempt in range(1, 4):
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                ),
+            )
+            
+            res_text = response.text.strip()
+            updated_db = json.loads(res_text)
+            
+            os.makedirs("_data", exist_ok=True)
+            with open(db_filepath, "w", encoding="utf-8") as f:
+                json.dump(updated_db, f, ensure_ascii=False, indent=2)
 
-        print(f"✅ 성공적으로 마스터 DB가 업데이트되었습니다! (사용 모델: {model_name})")
-        success = True
+            print(f"✅ 성공적으로 마스터 DB가 업데이트되었습니다! (사용 모델: {model_name})")
+            success = True
+            break
+
+        except Exception as e:
+            err_msg = str(e)
+            if "404" in err_msg or "NOT_FOUND" in err_msg:
+                print(f"⚠️ [{model_name}] 지원 안 됨(404). 다음 사용 가능 모델로 넘어갑니다.")
+                break
+            elif "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+                wait_time = attempt * 15
+                print(f"⚠️ 429 Rate Limit. {wait_time}초 대기 후 재시도합니다... ({attempt}/3)")
+                time.sleep(wait_time)
+            else:
+                print(f"❌ 호출 실패 [{model_name}]: {e}")
+                break
+                
+    if success:
         break
 
-    except Exception as e:
-        print(f"❌ 호출 실패 [{model_name}]: {e}")
-
 if not success:
-    print("❌ API 호출에 실패했습니다. 에러 로그를 확인해 주세요.")
+    print("❌ 사용 가능한 모든 모델 호출에 실패했습니다.")
     sys.exit(1)
