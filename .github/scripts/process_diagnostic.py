@@ -8,7 +8,7 @@ from google.genai import types
 # 1. 환경 변수 로드
 api_key = os.environ.get("GEMINI_API_KEY")
 issue_body = os.environ.get("ISSUE_BODY", "")
-issue_title = os.environ.get("ISSUE_TITLE", "경영진단 정보 추가")
+issue_title = os.environ.get("ISSUE_TITLE", "IP 경영진단 정보 추가")
 issue_number = os.environ.get("ISSUE_NUMBER", "0")
 
 if not api_key:
@@ -30,103 +30,94 @@ if os.path.exists(db_filepath) and os.path.getsize(db_filepath) > 0:
     except Exception as e:
         print(f"⚠️ 기존 DB 읽기 예외, 빈 데이터로 시작: {e}")
 
-# 3. 경영진단 마스터 DB 병합 프롬프트
+# 3. 특허 및 경영진단 전용 맞춤형 프롬프트
 prompt = f"""
-당신은 최고 경영컨설팅 지식관리(KM) 수석 파트너입니다.
-기존 DB와 신규 입력 데이터를 비교해 중복은 통합하고, 신규 체크리스트/제언을 반영한 마스터 DB(JSON)를 반환하세요.
+당신은 특허 전략 및 IP 경영컨설팅 지식관리(KM) 수석 파트너입니다.
+기존 DB와 새로 들어온 이슈 데이터를 정밀 비교 분석하여 중복된 데이터는 통합/제거하고, 신규 및 보완 포인트를 정제한 최신 마스터 DB(JSON)를 생성하세요.
 
-[기존 DB]
+[기존 마스터 DB]
 {json.dumps(existing_data, ensure_ascii=False)}
 
 [신규 입력 데이터 (Issue #{issue_number})]
 제목: {issue_title}
 내용: {issue_body}
 
-[규칙]
-1. 중복 제거 및 통합
-2. 4대 카테고리 중 분류: "경영전략 (Strategy)", "운영/프로세스 (Operations)", "조직/리더십 (Organization & Style)", "재무/자본배분 (Finance & Capital)"
-3. JSON 형식만 출력
+[분류 및 정제 지침]
+1. 입력된 모든 데이터는 반드시 다음 **4가지 지정 카테고리**로 분류하세요:
+   - "1. 특허 분쟁" (침해, FTO, 경고장, 모니터링, 분쟁 리스크 등)
+   - "2. 특허 매입" (외부 특허 매수, 기술 이전, 라이선스 인, 매각/포기 등)
+   - "3. 특허 출원" (직무발명, IP-R&D, 명세서 품질, 심의 프로세스, 대리인 관리 등)
+   - "4. 경영컨설팅 핵심 체크포인트" (위 내용 기반 경영진단 시 시급히 점검해야 할 전략/조직/예산/실행 가이드라인)
 
-[JSON 예시]
+2. 기존 DB와 내용이 중복되거나 유사하면 통합하고, 기존 항목의 description 또는 checklists 항목에 덧붙여 강화하세요.
+3. 데이터가 깔끔하게 읽히도록 핵심 문장 위주로 가독성 있게 정리하세요.
+
+[출력 규격 - 반드시 이 JSON 표준 형식만 출력할 것]
 [
   {{
-    "category": "운영/프로세스 (Operations)",
+    "category": "1. 특허 분쟁",
+    "icon": "fa-shield-halved",
     "items": [
       {{
-        "title": "진단 항목 명칭",
+        "title": "진단/관리 항목 명칭",
         "priority": "HIGH",
-        "description": "진단 개요 및 보완 내용",
-        "checklists": ["점검 체크리스트 1"]
+        "description": "핵심 내용 요약 및 중복 제거된 정제 데이터",
+        "checklists": ["체크리스트 1", "체크리스트 2"]
       }}
     ]
+  }},
+  {{
+    "category": "2. 특허 매입",
+    "icon": "fa-cart-shopping",
+    "items": []
+  }},
+  {{
+    "category": "3. 특허 출원",
+    "icon": "fa-file-signature",
+    "items": []
+  }},
+  {{
+    "category": "4. 경영컨설팅 핵심 체크포인트",
+    "icon": "fa-user-tie",
+    "items": []
   }}
 ]
 """
 
-# 4. API 키에서 현재 사용 가능한 모델 목록 동적 조회
+# 4. 사용 가능한 최신 Gemini 모델 탐색 및 호출
 candidate_models = []
-
 try:
-    print("🔍 계정에서 이용 가능한 최신 Gemini 모델 동적 검색 중...")
-    models_list = list(client.models.list())
-    for m in models_list:
+    for m in client.models.list():
         m_name = getattr(m, 'name', str(m)).replace("models/", "")
-        # 텍스트 생성용 flash / pro 모델만 추출
-        if any(k in m_name for k in ["flash", "pro"]) and not any(skip in m_name for skip in ["image", "tts", "live", "audio", "video", "veo", "embedding"]):
+        if any(k in m_name for k in ["flash", "pro"]) and not any(s in m_name for s in ["image", "tts", "live", "audio", "veo"]):
             candidate_models.append(m_name)
-    print(f"📋 감지된 사용 가능 모델 목록: {candidate_models}")
-except Exception as e:
-    print(f"⚠️ 모델 자동 탐색 실패, 기본 후보군을 사용합니다: {e}")
+except Exception:
+    pass
 
-# 동적 탐색 실패 시 기본 백업 후보
-backup_list = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
-for b in backup_list:
-    if b not in candidate_models:
-        candidate_models.append(b)
+if not candidate_models:
+    candidate_models = ['gemini-2.5-flash', 'gemini-2.0-flash']
 
-# 5. 감지된 모델로 순차 호출 시도
 success = False
-
 for model_name in candidate_models:
     print(f"🔄 모델 [{model_name}] 호출 시도 중...")
-    
-    for attempt in range(1, 4):
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json"
-                ),
-            )
-            
-            res_text = response.text.strip()
-            updated_db = json.loads(res_text)
-            
-            os.makedirs("_data", exist_ok=True)
-            with open(db_filepath, "w", encoding="utf-8") as f:
-                json.dump(updated_db, f, ensure_ascii=False, indent=2)
+    try:
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
+        )
+        
+        updated_db = json.loads(response.text.strip())
+        os.makedirs("_data", exist_ok=True)
+        with open(db_filepath, "w", encoding="utf-8") as f:
+            json.dump(updated_db, f, ensure_ascii=False, indent=2)
 
-            print(f"✅ 성공적으로 마스터 DB가 업데이트되었습니다! (사용 모델: {model_name})")
-            success = True
-            break
-
-        except Exception as e:
-            err_msg = str(e)
-            if "404" in err_msg or "NOT_FOUND" in err_msg:
-                print(f"⚠️ [{model_name}] 지원 안 됨(404). 다음 사용 가능 모델로 넘어갑니다.")
-                break
-            elif "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
-                wait_time = attempt * 15
-                print(f"⚠️ 429 Rate Limit. {wait_time}초 대기 후 재시도합니다... ({attempt}/3)")
-                time.sleep(wait_time)
-            else:
-                print(f"❌ 호출 실패 [{model_name}]: {e}")
-                break
-                
-    if success:
+        print(f"✅ 성공적으로 IP 경영진단 마스터 DB가 업데이트되었습니다! (사용 모델: {model_name})")
+        success = True
         break
+    except Exception as e:
+        print(f"⚠️ [{model_name}] 호출 실패: {e}")
 
 if not success:
-    print("❌ 사용 가능한 모든 모델 호출에 실패했습니다.")
+    print("❌ API 호출 실패. 에러 로그를 확인하세요.")
     sys.exit(1)
